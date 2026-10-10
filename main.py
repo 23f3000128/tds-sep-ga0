@@ -1,7 +1,9 @@
 """
 TDS 2026-09 GA0 - every question that needs a URL endpoint lives in this one file.
 
-Deployed on Render from GitHub. Start command:
+Deployed on Render from GitHub.
+Base URL: https://tds-sep-ga0.onrender.com
+Start command:
     uvicorn main:app --host 0.0.0.0 --port $PORT
 
 ENDPOINT MAP (one section per question, search for "QUESTION n"):
@@ -9,6 +11,7 @@ ENDPOINT MAP (one section per question, search for "QUESTION n"):
     GET  /healthz             -> wake-up / health check
     POST /code-interpreter    -> QUESTION 5: Code Interpreter with AI Error Analysis
     GET  /api                 -> QUESTION 10: FastAPI server that serves student data
+    POST /sentiment           -> QUESTION 11: FastAPI batch sentiment analysis
 
 Naming rule: anything belonging to question N is prefixed q<N>_ / Q<N>,
 except names the question text itself dictates (those are kept exactly as given).
@@ -58,6 +61,7 @@ def index():
         "endpoints": {
             "POST /code-interpreter": "Question 5 - Code Interpreter with AI Error Analysis",
             "GET /api": "Question 10 - Student data (filter with ?class=1A&class=1B)",
+            "POST /sentiment": "Question 11 - Batch sentiment analysis (happy / sad / neutral)",
             "GET /healthz": "Health check",
         },
     }
@@ -301,6 +305,61 @@ def get_students(request: Request):
     # Looping over students (not over classes) keeps the CSV row order.
     filtered_students = [student for student in students if student["class"] in classes]
     return {"students": filtered_students}
+
+
+# =============================================================================
+# QUESTION 11: FastAPI Batch Sentiment Analysis
+#   Endpoint : POST /sentiment
+#   Request  : {"sentences": ["I love this!", "I'm sad.", ...]}
+#   Response : {"results": [{"sentence": "I love this!", "sentiment": "happy"}, ...]}
+#   Method   : rule-based. Count happy words and sad words; the bigger count wins.
+# =============================================================================
+
+HAPPY_WORDS = [
+    "love", "excited", "excitement", "joy", "dream come true", "winning", "thrilled",
+    "best", "perfect", "smiling", "amazing", "grateful", "fantastic", "hoping for",
+    "wonderful", "proud", "happy", "happiest", "happiness", "delighted", "blessed",
+    "bliss", "ecstatic", "beautiful", "exceeded", "cloud nine", "fortunate",
+    "grinning", "alive", "energized", "celebrating", "spectacular", "great",
+    "awesome", "excellent", "glad", "pleased", "enjoy",
+]
+
+SAD_WORDS = [
+    "worst", "worse", "lost", "heartbroken", "failed", "failure", "terrible",
+    "passed away", "rejected", "devastated", "nobody", "regret", "layoffs",
+    "disappoint", "lonely", "abandoned", "falling apart", "struggling", "depress",
+    "badly", "hopeless", "crying", "pain", "broken", "miserable", "exhausted",
+    "traumatized", "defeated", "sorrow", "empty", "suffering", "anxiety", "grief",
+    "worried", "shattered", "betrayal", "sadness", "sad", "haunted", "crushed",
+    "burdened", "awful", "horrible", "hate", "unhappy", "upset",
+]
+
+
+class SentimentRequest(BaseModel):
+    sentences: List[str]
+
+
+def get_sentiment(sentence: str) -> str:
+    """Return "happy", "sad" or "neutral" for one sentence."""
+    text = sentence.lower()
+
+    happy_count = sum(1 for word in HAPPY_WORDS if word in text)
+    sad_count = sum(1 for word in SAD_WORDS if word in text)
+
+    if happy_count > sad_count:
+        return "happy"
+    if sad_count > happy_count:
+        return "sad"
+    return "neutral"
+
+
+@app.post("/sentiment")
+def sentiment(request: SentimentRequest):
+    """QUESTION 11 endpoint: one result per sentence, in the same order as the input."""
+    results = []
+    for sentence in request.sentences:
+        results.append({"sentence": sentence, "sentiment": get_sentiment(sentence)})
+    return {"results": results}
 
 
 # =============================================================================
