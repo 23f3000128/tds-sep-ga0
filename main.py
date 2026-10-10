@@ -28,7 +28,7 @@ from pydantic import BaseModel
 # SHARED APP SETUP (used by every question)
 # =============================================================================
 
-app = FastAPI(title="TDS GA0 endpoints")
+app = FastAPI(title="ga0-endpoints")
 
 # CORS: the grader runs in the browser at https://exam.sanand.workers.dev and
 # sends a JSON POST (which triggers a preflight OPTIONS request). It sends no
