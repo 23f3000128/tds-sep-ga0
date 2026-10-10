@@ -1,0 +1,53 @@
+"""
+QUESTION 10 self-test: checks GET /api the same way the grader does.
+Needs q-fastapi.csv next to main.py.
+
+Run:  python test_q10_api.py
+"""
+
+import csv
+import random
+
+from fastapi.testclient import TestClient
+
+from main import STUDENTS_CSV_FILE, app
+
+
+def main():
+    if not STUDENTS_CSV_FILE.exists():
+        raise SystemExit("Add q-fastapi.csv next to main.py first.")
+
+    # Read the CSV independently of main.py.
+    with open(STUDENTS_CSV_FILE, newline="", encoding="utf-8-sig") as csv_file:
+        expected_students = [
+            {"studentId": int(row["studentId"]), "class": row["class"]}
+            for row in csv.DictReader(csv_file)
+        ]
+
+    client = TestClient(app)
+    origin = {"Origin": "https://exam.sanand.workers.dev"}
+
+    # 1. No filter: every student, in CSV order.
+    response = client.get("/api", headers=origin)
+    assert response.status_code == 200, response.text
+    assert response.headers.get("access-control-allow-origin") == "*", "CORS header missing"
+    assert response.json() == {"students": expected_students}, "unfiltered response differs"
+
+    # 2. Like the grader: 4 random classes, repeated 50 times.
+    all_classes = sorted({student["class"] for student in expected_students})
+    for _ in range(50):
+        chosen_classes = random.sample(all_classes, min(4, len(all_classes)))
+        response = client.get("/api", params={"class": chosen_classes}, headers=origin)
+        expected = [s for s in expected_students if s["class"] in chosen_classes]
+        assert response.json() == {"students": expected}, f"filter {chosen_classes} differs"
+
+    # 3. One class only.
+    one_class = all_classes[0]
+    response = client.get("/api", params={"class": one_class})
+    assert response.json() == {"students": [s for s in expected_students if s["class"] == one_class]}
+
+    print(f"All checks passed ({len(expected_students)} students, {len(all_classes)} classes)")
+
+
+if __name__ == "__main__":
+    main()
