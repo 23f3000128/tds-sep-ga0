@@ -1,0 +1,151 @@
+"""
+QUESTION 11 self-test: sends all 99 sentences the grader picks its 10 from
+and checks every label. The grader needs 7 out of 10 correct.
+
+Run:  python test_q11_sentiment.py
+"""
+
+from fastapi.testclient import TestClient
+
+from main import app
+
+SENTENCES = {
+    "happy": [
+        "I absolutely love this product, it changed my life!",
+        "I'm so excited about my upcoming vacation!",
+        "This movie brought tears of joy to my eyes.",
+        "Winning the competition was a dream come true!",
+        "I'm thrilled to announce our engagement!",
+        "Best day ever! Everything went perfectly!",
+        "I can't stop smiling after hearing that!",
+        "This is amazing! I'm so grateful!",
+        "I feel fantastic today!",
+        "This is exactly what I was hoping for!",
+        "I'm overjoyed with this opportunity!",
+        "What a wonderful surprise!",
+        "I'm so proud of what we accomplished!",
+        "This is the happiest moment of my life!",
+        "I'm delighted with the service!",
+        "I'm blessed to have such wonderful friends!",
+        "This is pure bliss!",
+        "I'm ecstatic about the promotion!",
+        "Life is beautiful!",
+        "I'm radiating with happiness!",
+        "I'm jumping for joy!",
+        "This exceeded all my expectations!",
+        "I'm on cloud nine!",
+        "I'm bursting with excitement!",
+        "Today is the best day of my life!",
+        "I'm incredibly fortunate!",
+        "I'm grinning from ear to ear!",
+        "This is a dream come true!",
+        "I'm absolutely thrilled!",
+        "I feel alive and energized!",
+        "I'm celebrating this wonderful news!",
+        "I'm filled with pure joy!",
+        "This is absolutely spectacular!",
+    ],
+    "sad": [
+        "This is the worst experience I've ever had.",
+        "I lost my favorite book and I'm heartbroken.",
+        "I failed my exam and feel terrible about it.",
+        "My pet passed away yesterday.",
+        "The project was rejected by the committee.",
+        "I'm devastated by the news.",
+        "Nobody showed up to my birthday party.",
+        "I regret making that decision.",
+        "The company announced massive layoffs.",
+        "I'm disappointed with the results.",
+        "The diagnosis was worse than expected.",
+        "I feel lonely and abandoned.",
+        "Everything is falling apart.",
+        "I'm struggling with depression.",
+        "The relationship ended badly.",
+        "I feel hopeless about the situation.",
+        "I'm crying because of the pain.",
+        "My heart is broken.",
+        "I'm miserable and exhausted.",
+        "The accident left me traumatized.",
+        "I feel utterly defeated.",
+        "I'm drowning in sorrow.",
+        "Everything I touch turns to failure.",
+        "I feel empty inside.",
+        "I'm suffering from anxiety.",
+        "I lost everything in the fire.",
+        "I'm consumed by grief.",
+        "I'm worried sick about this.",
+        "I'm shattered by the betrayal.",
+        "I'm overwhelmed with sadness.",
+        "I'm haunted by regret.",
+        "I'm crushed by disappointment.",
+        "I'm burdened by endless problems.",
+    ],
+    "neutral": [
+        "The weather today is quite average.",
+        "The meeting is scheduled for 3 PM.",
+        "The package arrived on time.",
+        "The report contains 50 pages.",
+        "The store opens at 9 AM.",
+        "The temperature is 72 degrees.",
+        "The file is saved in the documents folder.",
+        "The train departs at 6:30 PM.",
+        "There are 12 items in the list.",
+        "The conference room is on the third floor.",
+        "The document is 10 pages long.",
+        "The meeting will last 2 hours.",
+        "The website has three main sections.",
+        "The office is located downtown.",
+        "The system requires an update.",
+        "The price is $50.",
+        "The button is on the left side.",
+        "The application is available for download.",
+        "The event starts at noon.",
+        "The folder contains 25 files.",
+        "The password must be 8 characters.",
+        "The form has five fields.",
+        "The menu has four options.",
+        "The course lasts 6 weeks.",
+        "The building has 10 floors.",
+        "The session duration is 30 minutes.",
+        "The table has 4 columns.",
+        "The deadline is next Friday.",
+        "The parking lot has 100 spaces.",
+        "The manual is 200 pages.",
+        "The warranty lasts one year.",
+        "The server is hosted in the cloud.",
+        "The API accepts JSON requests.",
+    ],
+}
+
+
+def main():
+    client = TestClient(app)
+
+    expected = [(text, label) for label, texts in SENTENCES.items() for text in texts]
+    sentences = [text for text, _ in expected]
+
+    response = client.post(
+        "/sentiment",
+        json={"sentences": sentences},
+        headers={"Origin": "https://exam.sanand.workers.dev"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers.get("access-control-allow-origin") == "*", "CORS header missing"
+
+    results = response.json()["results"]
+    assert len(results) == len(expected), "wrong number of results"
+
+    wrong = []
+    for (text, label), result in zip(expected, results):
+        assert result["sentence"] == text, "sentences are out of order"
+        if result["sentiment"] != label:
+            wrong.append(f"{text!r}: expected {label}, got {result['sentiment']}")
+
+    print(f"{len(expected) - len(wrong)}/{len(expected)} sentences correct")
+    for line in wrong:
+        print("WRONG", line)
+    raise SystemExit(1 if wrong else 0)
+
+
+if __name__ == "__main__":
+    main()
