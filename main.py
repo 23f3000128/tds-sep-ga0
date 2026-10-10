@@ -8,19 +8,22 @@ ENDPOINT MAP (one section per question, search for "QUESTION n"):
     GET  /                    -> lists every endpoint and which question it answers
     GET  /healthz             -> wake-up / health check
     POST /code-interpreter    -> QUESTION 5: Code Interpreter with AI Error Analysis
+    GET  /api                 -> QUESTION 10: FastAPI server that serves student data
 
 Naming rule: anything belonging to question N is prefixed q<N>_ / Q<N>,
 except names the question text itself dictates (those are kept exactly as given).
 """
 
+import csv
 import json
 import os
 import re
 import threading
+from pathlib import Path
 from typing import List
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -28,7 +31,7 @@ from pydantic import BaseModel
 # SHARED APP SETUP (used by every question)
 # =============================================================================
 
-app = FastAPI(title="ga0-endpoints")
+app = FastAPI(title="TDS GA0 endpoints")
 
 # CORS: the grader runs in the browser at https://exam.sanand.workers.dev and
 # sends a JSON POST (which triggers a preflight OPTIONS request). It sends no
@@ -54,6 +57,7 @@ def index():
         "service": "TDS GA0 endpoints",
         "endpoints": {
             "POST /code-interpreter": "Question 5 - Code Interpreter with AI Error Analysis",
+            "GET /api": "Question 10 - Student data (filter with ?class=1A&class=1B)",
             "GET /healthz": "Health check",
         },
     }
@@ -254,5 +258,51 @@ def q5_code_interpreter(request: Q5CodeRequest) -> Q5CodeResponse:
 
 
 # =============================================================================
-# NEXT QUESTION GOES HERE (copy the QUESTION 5 header block and rename q5_ -> qN_)
+# QUESTION 10: Write a FastAPI server to serve data
+#   Endpoint : GET /api                      -> all students
+#              GET /api?class=1A             -> only students in class 1A
+#              GET /api?class=1A&class=1B    -> only students in class 1A or 1B
+#   Response : {"students": [{"studentId": 1, "class": "1A"}, ...]}
+#   Data     : q-fastapi.csv (downloaded from the question, saved next to main.py)
+# =============================================================================
+
+STUDENTS_CSV_FILE = Path(__file__).parent / "q-fastapi.csv"
+
+
+def load_students() -> list:
+    """Read q-fastapi.csv into a list of {"studentId": int, "class": str}, in file order."""
+    if not STUDENTS_CSV_FILE.exists():
+        return []
+
+    students = []
+    with open(STUDENTS_CSV_FILE, newline="", encoding="utf-8-sig") as csv_file:
+        for row in csv.DictReader(csv_file):
+            students.append({"studentId": int(row["studentId"]), "class": row["class"]})
+    return students
+
+
+# Loaded once when the server starts.
+students = load_students()
+
+
+@app.get("/api")
+def get_students(request: Request):
+    """QUESTION 10 endpoint: return all students, or only those in the requested classes."""
+    if not students:
+        raise HTTPException(status_code=500, detail="q-fastapi.csv is missing or empty")
+
+    # "class" is a reserved word in Python, so it is read from the URL directly.
+    # getlist returns every value: ?class=1A&class=1B -> ["1A", "1B"]
+    classes = request.query_params.getlist("class")
+
+    if not classes:
+        return {"students": students}
+
+    # Looping over students (not over classes) keeps the CSV row order.
+    filtered_students = [student for student in students if student["class"] in classes]
+    return {"students": filtered_students}
+
+
+# =============================================================================
+# NEXT QUESTION GOES HERE (copy a QUESTION header block from above)
 # =============================================================================
