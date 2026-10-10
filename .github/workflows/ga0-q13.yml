@@ -1,0 +1,14 @@
+# QUESTION 13: GitHub Action with a step named after the student email.
+# Runs on every push, and can also be started by hand from the Actions tab.
+name: GA0 Q13
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 23f3000128@ds.study.iitm.ac.in
+        run: echo "Hello, world!"
