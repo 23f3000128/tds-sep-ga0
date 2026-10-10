@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: tds-ga0-endpoints
+    name: tds-sep-ga0
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
